@@ -4,19 +4,44 @@
 .vscode/
 #Cache folder
 .alcache/
-#Symbols folder
-.alpackages/
-#Snapshots folder
-.snapshots/
-#Testing Output folder
-.output/
-#Extension App-file
-*.app
-#Rapid Application Development File
-rad.json
-#Translation Base-file
-*.g.xlf
-#License-file
-*.flf
+# Ignorar todos os arquivos gerados pelo Vagrant
+.vagrant/
+
+# Ignorar arquivos de configuração do VirtualBox
+*.vbox
+*.vbox-prev
+*.log
+
+# Ignorar arquivos temporários e de cache do sistema
+*.swp
+*.swo
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db
+
+# Ignorar arquivos de backup
+*~
+
+# Ignorar logs gerados durante a execução
+*.log
+
+# Ignorar arquivos de configuração temporária
+config.yaml
+config.json
+
+# Ignorar diretórios e arquivos gerados em builds específicos
+/build/
+dist/
+
+# Ignorar possíveis arquivos sensíveis (certificados, chaves privadas, etc.)
+*.pem
+*.crt
+*.key
+
+# Ignorar pacotes e dependências específicas
+node_modules/
+vendor/
+
 #Test results file
 TestResults.xml
