@@ -100,13 +100,18 @@ Este comando pode levar alguns minutos, pois faz o download das boxes Ubuntu e i
 
     ```bash
     vagrant ssh client
+
+    # Faca login com as credenciais:
+    # usuário: vagrant
+    # senha: vagrant
     ```
-
-    recomenendo acessar a maquina clinete através do proprio virtualbox para ter uma melhor visualização via interface.
-    usuario: vagrant
-    senha: vagrant
-
-    Após iniciar a maquina cliente verifique se o arquivo **etc/resolv.conf** esta da seguinte forma:
+    
+    Após iniciar a maquina cliente coloque o seguitne comando:
+    ```bash
+      sudo nano /etc/resolv.conf
+    ```
+    
+    verifique se o arquivo **etc/resolv.conf** esta da seguinte forma:
 
     ```bash
     nameserver 192.168.10.10
