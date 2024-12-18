@@ -99,7 +99,7 @@ Este comando pode levar alguns minutos, pois faz o download das boxes Ubuntu e i
 - **Maquina Clietne**:
 
     ```bash
-    vagrant ssh dhcp
+    vagrant ssh client
     ```
 
     recomenendo acessar a maquina clinete através do proprio virtualbox para ter uma melhor visualização via interface.
