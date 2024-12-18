@@ -1,0 +1,326 @@
+
+Vagrant.configure("2") do |config|
+
+  config.vm.define "dhcp" do |dhcp|
+    
+    # Seleciona a box base do Ubuntu Server
+    dhcp.vm.box = "ubuntu/bionic64"
+
+    # Define o nome da VM para melhor identificação
+    dhcp.vm.hostname = "services"
+    
+    dhcp.vm.box_check_update = false
+
+    # Configuração de rede privada com DHCP
+    dhcp.vm.network "private_network", ip: "192.168.10.10", virtualbox__intnet: true
+
+    dhcp.vm.provider "virtualbox" do |vb|
+      vb.gui = false
+      vb.name = "server"
+      vb.memory = "1024"
+    end
+
+    # ------------------------------------------------ #
+    # ---------------  config DCHP  ------------------ #
+
+    dhcp.vm.provision "shell", inline: <<-SHELL
+      # Atualiza os pacotes do sistema
+      apt-get update
+      
+      # Instala o servidor DHCP (ISC DHCP) e Bind9 (DNS)
+      apt-get install -y isc-dhcp-server bind9 bind9utils bind9-doc
+
+      # Configura a interface para o servidor DHCP
+      sudo sed -i 's/INTERFACESv4=""/INTERFACESv4="enp0s8"/' /etc/default/isc-dhcp-server
+
+      # Configura o arquivo dhcpd.conf com as definições da rede
+      cat <<EOL > /etc/dhcp/dhcpd.conf
+default-lease-time 600;
+max-lease-time 7200;
+authoritative;
+
+subnet 192.168.10.0 netmask 255.255.255.0 {
+  range 192.168.10.11 192.168.10.100;
+  option routers 192.168.10.1;
+  option domain-name-servers 192.168.10.1;
+  option domain-name "rede.local";
+}
+EOL
+
+      # Reinicia o serviço DHCP para aplicar as mudanças
+      sudo systemctl restart isc-dhcp-server
+      sudo systemctl enable isc-dhcp-server
+
+  # ------------------------------------------------ #
+  # ---------------  Config DCHP  ------------------ #
+
+      # Editar o arquivo named.conf.options 
+      cat <<EOL > /etc/bind/named.conf.options
+options {
+  directory "/var/cache/bind";
+
+  forwarders {
+    8.8.8.8;
+    8.8.4.4;
+  };
+
+  dnssec-validation auto;
+
+  auth-nxdomain no;
+
+  allow-query { 192.168.10.0/24; };
+
+  recursion yes;
+
+  listen-on { any; };
+};
+EOL
+
+      # Editar o arquivo named.conf.local (Configura a zona direta)
+
+      cat <<EOL > /etc/bind/named.conf.local
+zone "rede.local" {
+  type master;
+  file "/etc/bind/db.rede.local";
+};
+
+zone "10.168.192.in-addr.arpa" {
+  type master;
+  file "/etc/bind/db.192.168.10";
+};
+EOL
+
+      # Crie o arquivo /etc/bind/db.rede.local com as definições dos hosts:
+      
+      sudo cp /etc/bind/db.local /etc/bind/db.rede.local
+      sudo cp /etc/bind/db.127 /etc/bind/db.192.168.10
+
+      # Editar o arquivo db.rede.local (Arquivo de zona direta)
+      cat <<EOF > /etc/bind/db.rede.local
+$TTL    604800
+@       IN      SOA     services.rede.local. root.rede.local. (
+                        100         ; Serial
+                    604800         ; Refresh
+                    86400         ; Retry
+                  2419200         ; Expire
+                    604800 )       ; Negative Cache TTL
+;
+@       IN      NS      services.rede.local.
+services      IN      A       192.168.10.10
+www     IN      A       192.168.10.3
+ftp     IN      A       192.168.10.3
+nfs     IN      A       192.168.10.3
+EOF
+
+      # Editar o arquivo db.192.168.10 (arquivo da zona reversa)
+
+      cat <<EOL > /etc/bind/db.192.168.10
+$TTL 604800
+@       IN      SOA     services.rede.local. root.rede.local. (
+                      2         ; Serial
+                      604800    ; Refresh
+                      86400     ; Retry
+                      2419200   ; Expire
+                      604800 )  ; Negative Cache TTL
+;
+
+@       IN      NS      services.rede.local.
+10      IN      PTR     services.rede.local.
+3       IN      PTR     www.rede.local.
+3       IN      PTR     ftp.rede.local.
+3       IN      PTR     nfs.rede.local.
+EOL
+
+      # Verifica e reinicia o serviço Bind9
+      sudo systemctl restart bind9
+      sudo systemctl enable bind9
+
+    SHELL
+  end
+
+  # --------------------------------------------------------------------- #
+  # ---------------------  Maquina Servidor Web  ------------------------ #
+
+  config.vm.define "web" do |web|
+    # Seleciona a box base do Ubuntu Server
+    web.vm.box = "ubuntu/bionic64"
+
+    # Define o nome da VM para melhor identificação
+    web.vm.hostname = "serverweb"
+    
+    web.vm.box_check_update = false
+
+    # Configuração de rede privada para requisitar um ip do servidor dhcp
+    web.vm.network "private_network", ip: "192.168.10.3", virtualbox__intnet: true
+
+    web.vm.provider "virtualbox" do |vb|
+      vb.name = "ServerWeb"
+      vb.memory = "1024"
+    end
+    
+    web.vm.provision "shell", inline: <<-SHELL
+      # Atualiza o sistema
+      apt-get update
+      
+      # Instala o Apache (Servidor Web)
+      apt-get install -y apache2
+      
+      # ------------------ Configuração do Servidor Web Apache ------------------
+
+      # Habilita módulos essenciais no Apache
+      a2enmod rewrite
+      systemctl restart apache2
+      
+      # Cria um diretório para o site e adiciona um conteúdo de teste
+      mkdir -p /var/www/rede.local
+      
+      cat <<EOF > /var/www/rede.local/index.html
+<html>
+  <head><title>Servidor Web</title></head>
+  <body>
+    <h1>Bem-vindo ao Servidor Web Apache</h1>
+    <p>Esta é uma página de teste do servidor Apache.</p>
+  </body>
+</html>
+EOF
+
+    # Configuração do VirtualHost no Apache
+      cat <<EOF > /etc/apache2/sites-available/rede.local.conf
+<VirtualHost *:80>
+  ServerAdmin webmaster@rede.local
+  ServerName www.rede.local
+  DocumentRoot /var/www/rede.local
+
+  <Directory /var/www/rede.local>
+    Options Indexes FollowSymLinks
+    AllowOverride All
+    Require all granted
+  </Directory>
+
+  ErrorLog \${APACHE_LOG_DIR}/error.log
+  CustomLog \${APACHE_LOG_DIR}/access.log combined
+</VirtualHost>
+EOF
+
+      # Habilita o VirtualHost
+      a2ensite rede.local.conf
+      a2dissite 000-default.conf
+      systemctl reload apache2
+
+  # ----------------------------------------------------------------------------- #
+  # ---------------------  Configuração do Servidor FTP  ------------------------ #
+    
+      # Instala o vsftpd (Servidor FTP)
+      apt-get install -y vsftpd  
+
+      # Backup do arquivo de configuração original
+      cp /etc/vsftpd.conf /etc/vsftpd.conf.bak
+
+      # Edita as configurações do FTP
+      cat <<EOF > /etc/vsftpd.conf
+listen=YES
+anonymous_enable=NO
+local_enable=YES
+write_enable=YES
+chroot_local_user=YES
+local_root=/home/ftpuser/ftp
+pasv_enable=YES
+pasv_min_port=40000
+pasv_max_port=50000
+EOF
+
+      # Cria usuário FTP e diretório de upload
+      useradd -m ftpuser -s /bin/bash
+      echo "ftpuser:ftp123" | chpasswd
+      mkdir -p /home/ftpuser/ftp/uploads
+      chmod -R 550 /home/ftpuser/ftp
+      chmod -R 750 /home/ftpuser/ftp/uploads
+      chown -R ftpuser: /home/ftpuser/ftp
+
+      # Reinicia o serviço FTP
+      systemctl restart vsftpd
+      systemctl enable vsftpd
+
+  # ----------------------------------------------------------------------------- #
+  # ---------------------  Configuração do Servidor NFS  ------------------------ # 
+
+      apt-get install -y nfs-kernel-server
+      
+      # Cria diretório a ser compartilhado
+      mkdir -p /srv/nfs_share
+      chmod 777 /srv/nfs_share
+
+      # Adiciona o diretório ao arquivo de exports
+      echo "/srv/nfs_share 192.168.10.0/24(rw,sync,no_root_squash)" >> /etc/exports
+
+      # Reinicia o NFS server
+      systemctl restart nfs-kernel-server
+      systemctl enable nfs-kernel-server
+
+      # Testa configuração
+      # exportfs -ra
+        
+    SHELL
+  end
+
+  # ---------------------------------------------------------------- #
+  # ---------------------  Maquina Cliente  ------------------------ #
+
+  config.vm.define "client" do |client|
+    # Seleciona a box base do Ubuntu Server
+    client.vm.box = "ubuntu/focal64"
+
+    # Define o nome da VM para melhor identificação
+    client.vm.hostname = "cliente"
+    
+    client.vm.box_check_update = false
+
+    # Configuração de rede privada para requisitar um ip do servidor dhcp
+    client.vm.network "private_network", type: "dhcp", virtualbox__intnet: true
+
+    client.vm.provider "virtualbox" do |vb|
+      vb.gui = true
+
+      vb.name = "cliente"
+      vb.memory = "2024"
+    end
+
+    client.vm.provision "shell", inline: <<-SHELL
+      apt-get update
+
+      # Instala o XFCE (interface gráfica leve) e utilitários básicos
+      DEBIAN_FRONTEND=noninteractive apt-get install -y xfce4 xfce4-terminal lightdm xrdp
+
+      # Instala utilitários adicionais necessários
+      apt-get install -y dnsutils firefox nfs-common
+
+      # Aguarda o DHCP fornecer o IP
+      sleep 5
+
+      # Cria o arquivo resolv.conf com as configurações desejadas
+      cat <<EOL > /etc/resolv.conf
+nameserver 192.168.10.10
+search rede.local
+EOL
+
+
+      # Bloqueia o arquivo resolv.conf para evitar que seja sobrescrito
+      sudo chattr +i /etc/resolv.conf
+
+       # Desativar gerenciamento de DNS pelo NetworkManager (se aplicável)
+      if [ -f /etc/NetworkManager/NetworkManager.conf ]; then
+        sudo sed -i '/^dns=/d' /etc/NetworkManager/NetworkManager.conf
+        echo -e "[main]\ndns=none" | sudo tee -a /etc/NetworkManager/NetworkManager.conf
+        sudo systemctl restart NetworkManager
+      fi
+
+      # Desativar gerenciamento de DNS pelo systemd-resolved (se aplicável)
+      if systemctl is-active systemd-resolved; then
+        sudo systemctl stop systemd-resolved
+        sudo systemctl disable systemd-resolved
+      fi
+
+    SHELL
+  end
+
+end
