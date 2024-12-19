@@ -25,10 +25,10 @@ Vagrant.configure("2") do |config|
 
     dhcp.vm.provision "shell", inline: <<-SHELL
       # Atualiza os pacotes do sistema
-      apt-get update
+      sudo apt-get update
       
       # Instala o servidor DHCP (ISC DHCP) e Bind9 (DNS)
-      apt-get install -y isc-dhcp-server bind9 bind9utils bind9-doc
+      sudo apt-get install -y isc-dhcp-server bind9 bind9utils bind9-doc
 
       # Configura a interface para o servidor DHCP
       sudo sed -i 's/INTERFACESv4=""/INTERFACESv4="enp0s8"/' /etc/default/isc-dhcp-server
@@ -108,8 +108,8 @@ $TTL    604800
 @       IN      NS      services.rede.local.
 services      IN      A       192.168.10.10
 www     IN      A       192.168.10.3
-ftp     IN      A       192.168.10.4
-nfs     IN      A       192.168.10.5
+ftp     IN      A       192.168.10.3
+nfs     IN      A       192.168.10.3
 EOF
 
       # Editar o arquivo db.192.168.10 (arquivo da zona reversa)
@@ -127,8 +127,8 @@ $TTL 604800
 @       IN      NS      services.rede.local.
 10      IN      PTR     services.rede.local.
 3       IN      PTR     www.rede.local.
-4       IN      PTR     ftp.rede.local.
-5       IN      PTR     nfs.rede.local.
+3       IN      PTR     ftp.rede.local.
+3       IN      PTR     nfs.rede.local.
 EOL
 
       # Verifica e reinicia o serviço Bind9
@@ -160,19 +160,19 @@ EOL
     
     web.vm.provision "shell", inline: <<-SHELL
       # Atualiza o sistema
-      apt-get update
+      sudo apt-get update
       
       # Instala o Apache (Servidor Web)
-      apt-get install -y apache2
+      sudo apt-get install -y apache2
       
       # ------------------ Configuração do Servidor Web Apache ------------------
 
       # Habilita módulos essenciais no Apache
       a2enmod rewrite
-      systemctl restart apache2
+      sudo systemctl restart apache2
       
       # Cria um diretório para o site e adiciona um conteúdo de teste
-      mkdir -p /var/www/rede.local
+      sudo mkdir -p /var/www/rede.local
       
       cat <<EOF > /var/www/rede.local/index.html
 <html>
@@ -205,13 +205,13 @@ EOF
       # Habilita o VirtualHost
       a2ensite rede.local.conf
       a2dissite 000-default.conf
-      systemctl reload apache2
+      sudo systemctl reload apache2
 
   # ----------------------------------------------------------------------------- #
   # ---------------------  Configuração do Servidor FTP  ------------------------ #
     
       # Instala o vsftpd (Servidor FTP)
-      apt-get install -y vsftpd  
+      sudo apt-get install -y vsftpd  
 
       # Backup do arquivo de configuração original
       cp /etc/vsftpd.conf /etc/vsftpd.conf.bak
@@ -232,10 +232,10 @@ EOF
       # Cria usuário FTP e diretório de upload
       useradd -m ftpuser -s /bin/bash
       echo "ftpuser:ftp123" | chpasswd
-      mkdir -p /home/ftpuser/ftp/uploads
-      chmod -R 550 /home/ftpuser/ftp
-      chmod -R 750 /home/ftpuser/ftp/uploads
-      chown -R ftpuser: /home/ftpuser/ftp
+      sudo mkdir -p /home/ftpuser/ftp/uploads
+      sudo chmod -R 550 /home/ftpuser/ftp
+      sudo chmod -R 750 /home/ftpuser/ftp/uploads
+      sudo chown -R ftpuser: /home/ftpuser/ftp
 
       # Reinicia o serviço FTP
       systemctl restart vsftpd
@@ -244,18 +244,18 @@ EOF
   # ----------------------------------------------------------------------------- #
   # ---------------------  Configuração do Servidor NFS  ------------------------ # 
 
-      apt-get install -y nfs-kernel-server
+      sudo apt-get install -y nfs-kernel-server
       
       # Cria diretório a ser compartilhado
-      mkdir -p /srv/nfs_share
-      chmod 777 /srv/nfs_share
+      sudo mkdir -p /srv/nfs_share
+      sudo chmod 777 /srv/nfs_share
 
       # Adiciona o diretório ao arquivo de exports
       echo "/srv/nfs_share 192.168.10.0/24(rw,sync,no_root_squash)" >> /etc/exports
 
       # Reinicia o NFS server
-      systemctl restart nfs-kernel-server
-      systemctl enable nfs-kernel-server
+      sudo systemctl restart nfs-kernel-server
+      sudo systemctl enable nfs-kernel-server
 
       # Testa configuração
       # exportfs -ra
@@ -286,13 +286,13 @@ EOF
     end
 
     client.vm.provision "shell", inline: <<-SHELL
-      apt-get update
+      sudo apt-get update
 
       # Instala o XFCE (interface gráfica leve) e utilitários básicos
       DEBIAN_FRONTEND=noninteractive apt-get install -y xfce4 xfce4-terminal lightdm xrdp
 
       # Instala utilitários adicionais necessários
-      apt-get install -y dnsutils firefox nfs-common
+      sudo apt-get install -y dnsutils firefox nfs-common
 
       # Aguarda o DHCP fornecer o IP
       sleep 5
