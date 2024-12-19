@@ -108,8 +108,8 @@ $TTL    604800
 @       IN      NS      services.rede.local.
 services      IN      A       192.168.10.10
 www     IN      A       192.168.10.3
-ftp     IN      A       192.168.10.4
-nfs     IN      A       192.168.10.5
+ftp     IN      A       192.168.10.3
+nfs     IN      A       192.168.10.3
 EOF
 
       # Editar o arquivo db.192.168.10 (arquivo da zona reversa)
@@ -127,8 +127,8 @@ $TTL 604800
 @       IN      NS      services.rede.local.
 10      IN      PTR     services.rede.local.
 3       IN      PTR     www.rede.local.
-4       IN      PTR     ftp.rede.local.
-5       IN      PTR     nfs.rede.local.
+3       IN      PTR     ftp.rede.local.
+3       IN      PTR     nfs.rede.local.
 EOL
 
       # Verifica e reinicia o serviço Bind9
