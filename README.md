@@ -44,8 +44,7 @@ Se os comandos retornarem versoes validos, a ferramentas esta corretamente insta
 Baixe o projeto para sua maquina local:
 
 ```bash
-git clone https://github.com/seu-usuario/nome-do-repositorio.git
-cd nome-do-repositorio
+git clone https://github.com/Samuel-N-M/ProjetoFinalRedes.git
 ```
 
 ### 2. Inicie o Ambiente Vagrant
